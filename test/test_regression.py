@@ -13,7 +13,8 @@ config_regression = {
             {'name': 'max_depth', 'type': 'integer', 'low': 3, 'high': 20},
             {'name': 'min_samples_split', 'type': 'integer', 'low': 2, 'high': 10},
             {'name': 'min_samples_leaf', 'type': 'integer', 'low': 1, 'high': 4},
-            {'name': 'min_impurity_decrease', 'type': 'float', 'low': 0.0, 'high': 1.0}
+            {'name': 'min_impurity_decrease', 'type': 'float', 'low': 0.0, 'high': 1.0},
+            {'name': 'criterion', 'type': 'categorical', 'categories': ['squared_error', 'absolute_error']}
         ]
     },
     'scoring': 'neg_mean_squared_error',
@@ -22,14 +23,14 @@ config_regression = {
             'hpo_class': BayesianOptimizationHPO,
             'hpo_params': {
                 'verbose': 1,
-                'random_state': 50,
+                'random_state': 52,
             }
         },
         'Evolutionary': {
             'hpo_class': EvolutionaryStrategyHPO,
             'hpo_params': {
                 'verbose': 1,
-                'random_state': 50,
+                'random_state': 52,
             }
         }
     }

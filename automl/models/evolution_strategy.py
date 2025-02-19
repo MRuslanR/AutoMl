@@ -2,7 +2,7 @@ import numpy as np
 from warnings import catch_warnings, simplefilter
 
 class EvolutionaryStrategyHPO:
-    def __init__(self, f, param_space, population_size=50,
+    def __init__(self, f, param_space, population_size=20,
                  mutation_variance=0.1, verbose=1, random_state=None,
                  generations=10, mutation_rate=0.25, mutation_ratio=0.75, elite_ratio=0.2):
         """

@@ -3,22 +3,12 @@ from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
 from warnings import catch_warnings, simplefilter
+import warnings
 
 class BayesianOptimizationHPO:
     def __init__(self, f, param_space, verbose=1, random_state=None,
                  init_points=10, n_iter=50, acq='ucb', kappa=2.576, xi=0.0):
 
-        """
-        f: Objective function to minimize/maximize. Must accept parameters from param_space as kwargs
-        param_space: List of dictionaries defining parameters (name, type, low/high). Categoricals not supported
-        verbose: Verbosity level (0 = silent, 1 = basic, 2 = detailed). Default: 2
-        random_state: Seed for random number generator. Default: None
-        init_points: Number of initial random evaluations. Default: 5
-        n_iter: Number of Bayesian optimization iterations. Default: 25
-        acq: Acquisition function type ('ucb' = upper confidence bound, 'ei' = expected improvement). Default: 'ucb'
-        kappa: Exploration-exploitation tradeoff parameter for UCB. Default: 2.576
-        xi: Exploration threshold parameter for EI. Default: 0.0
-        """
         self.f = f
         self.param_space = param_space
         self.verbose = verbose
@@ -33,17 +23,39 @@ class BayesianOptimizationHPO:
         self._values = []
         self.rng = np.random.RandomState(random_state)
         self.pbounds = {}
+        self.categorical_mapping = {}
 
         for param in param_space:
-            if 'low' not in param or 'high' not in param:
-                raise ValueError(f"Parameter {param['name']} missing 'low' or 'high'")
-            if param['low'] >= param['high']:
-                raise ValueError(f"Invalid range for {param['name']}")
+            name = param['name']
+            param_type = param['type']
+            if param_type == 'categorical':
+                if 'categories' not in param:
+                    raise ValueError(f"Parameter {name} of type 'categorical' must have 'categories' list.")
+                categories = param['categories']
+                if not isinstance(categories, list) or len(categories) == 0:
+                    raise ValueError(f"Parameter {name} 'categories' must be a non-empty list.")
+                self.categorical_mapping[name] = categories.copy()
+                low = 0
+                high = len(categories) - 1
+                self.pbounds[name] = (low, high)
+            else:
+                if 'low' not in param or 'high' not in param:
+                    raise ValueError(f"Parameter {name} missing 'low' or 'high'")
+                low = param['low']
+                high = param['high']
+                if low >= high:
+                    raise ValueError(f"Invalid range for {name} (low >= high)")
+                if param_type not in ['integer', 'float']:
+                    raise ValueError(f"Unsupported parameter type {param_type} for {name}")
+                self.pbounds[name] = (low, high)
 
-            if param['type'] in ['integer', 'float']:
-                self.pbounds[param['name']] = (param['low'], param['high'])
-            elif param['type'] == 'categorical':
-                raise ValueError("Categorical params not supported in Bayesian optimization")
+        # Issue warning if categorical parameters are present
+        if self.categorical_mapping:
+            warnings.warn(
+                "Warning: The use of categorical parameters is strongly discouraged in Bayesian Optimization. "
+                "Categorical variables are converted to integers, which may not be suitable for the underlying Gaussian Process model. "
+                "Consider using continuous or integer variables instead.", UserWarning
+            )
 
         self.gp = GaussianProcessRegressor(
             kernel=Matern(nu=2.5),
@@ -63,13 +75,17 @@ class BayesianOptimizationHPO:
             if self.verbose >= 1:
                 print(f"Iteration {i + 1}/{self.n_iter} | Best: {self.max['target']:.4f}")
 
-        # Обработка лучших параметров
         best_params = {}
         for param in self.param_space:
             name = param['name']
             value = self.max['params'][name]
             if param['type'] == 'integer':
                 best_params[name] = int(round(value))
+            elif param['type'] == 'categorical':
+                categories = param['categories']
+                index = int(np.round(value))
+                index = np.clip(index, 0, len(categories) - 1)
+                best_params[name] = categories[index]
             else:
                 best_params[name] = value
 
@@ -120,6 +136,13 @@ class BayesianOptimizationHPO:
 
     def probe(self, x):
         params = dict(zip(self.pbounds.keys(), x))
+        for name in self.categorical_mapping:
+            continuous_val = params[name]
+            categories = self.categorical_mapping[name]
+            index = int(np.round(continuous_val))
+            index = np.clip(index, 0, len(categories) - 1)
+            params[name] = categories[index]
+
         target = self.f(**params)
 
         self._space.append(x)
@@ -131,7 +154,8 @@ class BayesianOptimizationHPO:
     @property
     def max(self):
         idx = np.argmax(self._values)
+        params_dict = dict(zip(self.pbounds.keys(), self._space[idx]))
         return {
-            'params': dict(zip(self.pbounds.keys(), self._space[idx])),
+            'params': params_dict,
             'target': self._values[idx]
         }
