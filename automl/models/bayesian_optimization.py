@@ -7,8 +7,20 @@ import warnings
 
 class BayesianOptimizationHPO:
     def __init__(self, f, param_space, verbose=1, random_state=None,
-                 init_points=10, n_iter=50, acq='ucb', kappa=2.576, xi=0.0):
-
+                 init_points=10, n_iter=50, acq='ucb', kappa=2.576, xi=0.0,
+                 n_candidates=500):
+        """
+        f: Objective function to minimize/maximize. Must accept parameters from param_space as kwargs
+        param_space: List of dictionaries defining search space parameters (name, type, low/high/categories)
+        verbose: Verbosity level (0 = silent, 1 = basic, 2 = detailed). Default: 1
+        random_state: Seed for random number generator. Default: None
+        init_points: Number of initial random evaluations before Bayesian optimization begins. Default: 10
+        n_iter: Number of Bayesian optimization iterations. Default: 50
+        acq: Acquisition function type ('ucb' or 'ei'). Default: 'ucb'
+        kappa: Exploration-exploitation parameter for UCB. Higher values promote exploration. Default: 2.576
+        xi: Exploration parameter for EI, controls improvement threshold. Default: 0.0
+        n_candidates: Number of candidate samples to evaluate for acquisition function optimization. Default: 500
+        """
         self.f = f
         self.param_space = param_space
         self.verbose = verbose
@@ -18,6 +30,7 @@ class BayesianOptimizationHPO:
         self.acq = acq
         self.kappa = kappa
         self.xi = xi
+        self.n_candidates = n_candidates
 
         self._space = []
         self._values = []
@@ -106,7 +119,7 @@ class BayesianOptimizationHPO:
         best_acq = -np.inf
         best_x = None
 
-        for _ in range(500):
+        for _ in range(self.n_candidates):
             candidate = np.array([self.rng.uniform(low, high) for (low, high) in self._bounds])
 
             mu, sigma = self.gp.predict([candidate], return_std=True)
