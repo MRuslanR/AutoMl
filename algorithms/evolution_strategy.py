@@ -3,8 +3,21 @@ from warnings import catch_warnings, simplefilter
 
 class EvolutionaryStrategyHPO:
     def __init__(self, f, param_space, population_size=50,
-                 mutation_variance=0.1, verbose=0, random_state=None,
-                 generations=20, mutation_rate=0.1, mutation_ratio=0.5, elite_ratio=0.2):
+                 mutation_variance=0.1, verbose=1, random_state=None,
+                 generations=10, mutation_rate=0.25, mutation_ratio=0.75, elite_ratio=0.2):
+        """
+        f: Objective function to minimize/maximize. Must accept parameters from param_space as kwargs
+        param_space: List of dictionaries defining search space parameters (name, type, low/high/categories)
+        population_size: Number of individuals in each generation. Default: 50
+        mutation_variance: Scaling factor for mutation step size. Default: 0.1
+        verbose: Verbosity level (0 = silent, 1 = basic, 2 = detailed). Default: 0
+        random_state: Seed for random number generator. Default: None
+        generations: Number of evolutionary iterations. Default: 20
+        mutation_rate: Probability of mutating individual parameter. Default: 0.25
+        mutation_ratio: Probability of applying mutation to offspring. Default: 0.75
+        elite_ratio: Proportion of top performers preserved between generations. Default: 0.2
+        """
+
         self.f = f
         self.param_space = param_space
         self.population_size = population_size
@@ -84,6 +97,8 @@ class EvolutionaryStrategyHPO:
             score = self.f(**params)
 
         self.fitness_cache[key] = score
+        if self.verbose > 1 :
+            print(f"Probe: {params} → Score: {score:.4f}")
         return score
 
     def optimize(self):
@@ -108,6 +123,7 @@ class EvolutionaryStrategyHPO:
             self.history.append(best_fitness)
             if self.verbose:
                 print(f"Generation {gen + 1}/{self.generations} | Best: {best_fitness:.4f}")
+
 
         best_idx = np.argmax([self._evaluate(ind) for ind in population])
         best_params = population[best_idx]

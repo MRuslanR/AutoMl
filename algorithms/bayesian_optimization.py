@@ -5,8 +5,20 @@ from sklearn.gaussian_process.kernels import Matern
 from warnings import catch_warnings, simplefilter
 
 class BayesianOptimizationHPO:
-    def __init__(self, f, param_space, verbose=2, random_state=None,
-                 init_points=5, n_iter=25, acq='ucb', kappa=2.576, xi=0.0):
+    def __init__(self, f, param_space, verbose=1, random_state=None,
+                 init_points=10, n_iter=50, acq='ucb', kappa=2.576, xi=0.0):
+
+        """
+        f: Objective function to minimize/maximize. Must accept parameters from param_space as kwargs
+        param_space: List of dictionaries defining parameters (name, type, low/high). Categoricals not supported
+        verbose: Verbosity level (0 = silent, 1 = basic, 2 = detailed). Default: 2
+        random_state: Seed for random number generator. Default: None
+        init_points: Number of initial random evaluations. Default: 5
+        n_iter: Number of Bayesian optimization iterations. Default: 25
+        acq: Acquisition function type ('ucb' = upper confidence bound, 'ei' = expected improvement). Default: 'ucb'
+        kappa: Exploration-exploitation tradeoff parameter for UCB. Default: 2.576
+        xi: Exploration threshold parameter for EI. Default: 0.0
+        """
         self.f = f
         self.param_space = param_space
         self.verbose = verbose
@@ -79,10 +91,7 @@ class BayesianOptimizationHPO:
         best_x = None
 
         for _ in range(500):
-            candidate = np.array([
-                self.rng.uniform(low, high)
-                for (low, high) in self._bounds
-            ])
+            candidate = np.array([self.rng.uniform(low, high) for (low, high) in self._bounds])
 
             mu, sigma = self.gp.predict([candidate], return_std=True)
 
@@ -106,10 +115,7 @@ class BayesianOptimizationHPO:
 
     def init(self, init_points):
         for _ in range(init_points):
-            x = np.array([
-                self.rng.uniform(low, high)
-                for (low, high) in self._bounds
-            ])
+            x = np.array([self.rng.uniform(low, high) for (low, high) in self._bounds])
             self.probe(x)
 
     def probe(self, x):
@@ -119,7 +125,7 @@ class BayesianOptimizationHPO:
         self._space.append(x)
         self._values.append(target)
 
-        if self.verbose > 0:
+        if self.verbose > 1:
             print(f"Probe: {params} → Score: {target:.4f}")
 
     @property
